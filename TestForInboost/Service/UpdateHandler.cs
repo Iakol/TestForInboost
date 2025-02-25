@@ -160,7 +160,7 @@ public class UpdateHandler : IUpdateHandler
                              $"\n" +
                              $"Pressure:{Weather.main.pressure} Pa\n" +
                              $"\n" +
-                             $"humidity: {Weather.main.humidity} m/s\n" +
+                             $"humidity: {Weather.main.humidity} %\n" +
                              $"\n" +
                              $"Wind speed: {Weather.wind.speed} m/s\n" +
                              $"Wind deg: {Weather.wind.deg}"+
