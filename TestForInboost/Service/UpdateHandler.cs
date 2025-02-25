@@ -165,7 +165,9 @@ public class UpdateHandler : IUpdateHandler
                              $"Wind speed: {Weather.wind.speed} m/s\n" +
                              $"Wind deg: {Weather.wind.deg}"+
                              $"\n" +
-                             $"Clouds:{Weather.clouds.all}% \n";
+                             $"Clouds:{Weather.clouds.all}% \n"+
+                             $"\n" +
+                             $"Visibility: {Weather.visibility}\n";
 
 
 
