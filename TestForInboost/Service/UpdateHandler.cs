@@ -153,10 +153,10 @@ public class UpdateHandler : IUpdateHandler
                              $"description: {Weather.weather[0].description}\n" +            
                              $"\n" +
                              $"Temp:°C\n" +
-                             $" temp: {Weather.main.temp}°C\n" +
-                             $" feels_like: {Weather.main.feels_like}°C\n" +
-                             $" temp_min: {Weather.main.temp_min}°C\n" +
-                             $" temp_max: {Weather.main.temp_max}°C\n" +
+                             $" temp: {Weather.main.temp - 273}°C\n" +
+                             $" feels_like: {Weather.main.feels_like - 273}°C\n" +
+                             $" temp_min: {Weather.main.temp_min - 273}°C\n" +
+                             $" temp_max: {Weather.main.temp_max - 273}°C\n" +
                              $"\n" +
                              $"Pressure:{Weather.main.pressure} Pa\n" +
                              $"\n" +
