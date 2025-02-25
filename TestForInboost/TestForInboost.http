@@ -1,0 +1,6 @@
+@TestForInboost_HostAddress = http://localhost:5268
+
+GET {{TestForInboost_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
