@@ -9,6 +9,5 @@
         public string? LastName { get; set; }
         public string? UserName { get; set; }
 
-        // Other User Cred
     }
 }

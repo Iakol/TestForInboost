@@ -32,7 +32,6 @@ public class UpdateHandler : IUpdateHandler
     public async Task HandleErrorAsync(ITelegramBotClient botClient, Exception exception, HandleErrorSource source, CancellationToken cancellationToken)
     {
         logger.LogInformation("HandleError: {Exception}", exception);
-        // Cooldown in case of network connection error
         if (exception is RequestException)
             await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
     }
@@ -105,7 +104,6 @@ public class UpdateHandler : IUpdateHandler
         else
         {
             await Usage(msg);
-            //Логіка немає такої команди
         }
     }
 
@@ -177,7 +175,6 @@ public class UpdateHandler : IUpdateHandler
             );
     }
 
-    //Перербити
 
     async Task<Message> Usage(Message msg)
     {
