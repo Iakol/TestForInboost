@@ -7,19 +7,11 @@ using TestForInboost.DTO;
 namespace TestForInboost.Service
 {
 
-    public class OpenWeatherMapService 
+    public class OpenWeatherMapService(HttpClient _httpClient, IConfiguration _configuration)
     {
-        private readonly HttpClient _httpClient;
-        private readonly IConfiguration _configuration;
-        public OpenWeatherMapService(HttpClient httpClient, IConfiguration configuration = null)
-        {
-            _httpClient = httpClient;
-            _configuration = configuration;
-        }
 
-        public async Task<WeatherHistoryDTO> getWeatherForCity(string city) 
+        public async Task<JsonElement> getWeatherForCity(string city) 
         {
-            WeatherHistoryDTO weather = new WeatherHistoryDTO();
 
             string url = $"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={_configuration["openweathermapKey"]}";
 
@@ -27,9 +19,13 @@ namespace TestForInboost.Service
 
             var content = await jsonresponce.Content.ReadAsStringAsync();
 
-            weather = JsonSerializer.Deserialize<WeatherHistoryDTO>(content);
+            var jsonDocument = JsonDocument.Parse(content);
 
-            return weather;
+
+            var json = jsonDocument.RootElement;
+
+
+            return json;
         }
     }
 }

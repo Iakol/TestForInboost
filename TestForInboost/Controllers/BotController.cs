@@ -3,12 +3,13 @@ using Telegram.Bot.Types;
 using Telegram.Bot;
 using TestForInboost.Service;
 using Microsoft.Extensions.Options;
+using TestForInboost.DTO;
 
 namespace TestForInboost.Controllers
 {
     [ApiController]
     [Route("/")]
-    public class BotController(IOptions<BotConfiguration> Config) : ControllerBase
+    public class BotController(IOptions<BotConfiguration> Config, DapperRepository _db) : ControllerBase
     {
         
         [HttpGet("setWebhook")]
@@ -35,6 +36,34 @@ namespace TestForInboost.Controllers
             }
             return Ok();
         }
-    
+        [HttpGet]
+        [Route("api/Users/:id")]
+        public async Task<ActionResult<UserWithWeatherHistoryDTO>> GetUserInfo(long id)
+        {
+            return Ok(await _db.GetUserAndHimHistory(id));
+        }
+
+        [HttpPost]
+        [Route("api/Users/[action]")]
+
+        public async Task<ActionResult> NotifyallOrOneUser([FromServices] ITelegramBotClient bot, string Text, long? id)
+        {
+            List<UserDTO> users = await _db.GetUsersList();
+
+            if (id.HasValue)
+            {
+                await bot.SendMessage(id.Value, Text);
+            }
+            else
+            {
+
+                foreach (var item in users)
+                {
+                    await bot.SendMessage(item.Id, Text);
+                }
+            }
+            return Ok();
+        }
+
     }
 }

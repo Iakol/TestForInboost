@@ -13,22 +13,12 @@ using TestForInboost.DTO;
 
 namespace TestForInboost.Service;
 
-public class UpdateHandler : IUpdateHandler
+public class UpdateHandler(ITelegramBotClient bot,  ILogger<UpdateHandler> logger, IServiceScopeFactory _serviceScopeFactory, OpenWeatherMapService _openWeatherService) : IUpdateHandler
 {
-    private static readonly InputPollOption[] PollOptions = ["Hello", "World!"];
-    private readonly OpenWeatherMapService _openWeatherService;
-    private readonly ITelegramBotClient bot;
-    private readonly ILogger<UpdateHandler> logger;
-    private readonly IServiceScopeFactory _serviceScopeFactory;
+    
+    
 
 
-    public UpdateHandler(IServiceScopeFactory serviceScopeFactory, ITelegramBotClient _bot, ILogger<UpdateHandler> _logger, OpenWeatherMapService openWeatherService) 
-    {
-        _openWeatherService = openWeatherService;
-        bot = _bot;
-        logger = _logger;
-        _serviceScopeFactory = serviceScopeFactory;
-    }
     public async Task HandleErrorAsync(ITelegramBotClient botClient, Exception exception, HandleErrorSource source, CancellationToken cancellationToken)
     {
         logger.LogInformation("HandleError: {Exception}", exception);
@@ -62,7 +52,7 @@ public class UpdateHandler : IUpdateHandler
                 var _dapper = scope.ServiceProvider.GetRequiredService<DapperRepository>();
                 var _Weather = scope.ServiceProvider.GetRequiredService<OpenWeatherMapService>();
 
-                WeatherHistoryDTO weatherResponse = await _Weather.getWeatherForCity(city);
+                var weatherResponse = await _Weather.getWeatherForCity(city);
 
                 if (await _dapper.GetUser(msg.Chat.Id) == null)
                 {
@@ -77,15 +67,14 @@ public class UpdateHandler : IUpdateHandler
                     });
                 }
 
-                weatherResponse.UserId = msg.From.Id;
 
                 Message sentMessage = new Message();
 
-
-                if (weatherResponse.cod == 200)
+                if (weatherResponse.GetProperty("cod").GetInt32() == 200)
                 {
-                    weatherResponse.Id = await _dapper.CreateWeatherHistory(weatherResponse);
-                    sentMessage = await SendWeather(msg, weatherResponse, city);
+
+                    int weatherId = await _dapper.CreateWeatherHistory(weatherResponse, msg.From.Id);
+                    sentMessage = await SendWeather(msg, weatherId, city);
                 }
                 else
                 {
@@ -107,9 +96,9 @@ public class UpdateHandler : IUpdateHandler
         }
     }
 
-    async Task<Message> SendWeather(Message msg, WeatherHistoryDTO weatherHistory, string city)
+    async Task<Message> SendWeather(Message msg, int weatherHistoryID, string city)
     {
-        string serilizeWeather = Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(weatherHistory.Id)));
+        string serilizeWeather = Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(weatherHistoryID)));
 
         var inlineButton = new InlineKeyboardMarkup(new[]
         {
@@ -149,23 +138,23 @@ public class UpdateHandler : IUpdateHandler
 
         }
 
-        string weatherInfo = $"main: {Weather.weather[0].main}\n" +
-                             $"description: {Weather.weather[0].description}\n" +            
+        string weatherInfo = $"main: {Weather.Main}\n" +
+                             $"description: {Weather.Description}\n" +            
                              $"\n" +
                              $"Temp:°C\n" +
-                             $" temp: {Weather.main.temp - 273}°C\n" +
-                             $" feels_like: {Weather.main.feels_like - 273}°C\n" +
-                             $" temp_min: {Weather.main.temp_min - 273}°C\n" +
-                             $" temp_max: {Weather.main.temp_max - 273}°C\n" +
+                             $" temp: {Weather.temp - 273}°C\n" +
+                             $" feels_like: {Weather.temp_feels_like - 273}°C\n" +
+                             $" temp_min: {Weather.temp_min - 273}°C\n" +
+                             $" temp_max: {Weather.temp_max - 273}°C\n" +
                              $"\n" +
-                             $"Pressure:{Weather.main.pressure} Pa\n" +
+                             $"Pressure:{Weather.pressure} Pa\n" +
                              $"\n" +
-                             $"humidity: {Weather.main.humidity} %\n" +
+                             $"humidity: {Weather.humidity} %\n" +
                              $"\n" +
-                             $"Wind speed: {Weather.wind.speed} m/s\n" +
-                             $"Wind deg: {Weather.wind.deg}"+
+                             $"Wind speed: {Weather.wind_speed} m/s\n" +
+                             $"Wind deg: {Weather.wind_deg}"+
                              $"\n" +
-                             $"Clouds:{Weather.clouds.all}% \n"+
+                             $"Clouds:{Weather.cloud}% \n"+
                              $"\n" +
                              $"Visibility: {Weather.visibility}\n";
 

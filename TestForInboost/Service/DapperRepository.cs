@@ -1,11 +1,13 @@
 ﻿using Dapper;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using System.Data;
 using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text.Json;
 using Telegram.Bot.Types;
 using TestForInboost.DTO;
-using TestForInboost.DTO.Weather;
 using TestForInboost.SQL;
 
 namespace TestForInboost.Service
@@ -21,41 +23,15 @@ namespace TestForInboost.Service
 
         public async Task InitiateDataBase() 
         {
-            string UserTable = (await _db.QueryAsync<string>(SQLConstants.CheakUserTable)).FirstOrDefault();
-            if (UserTable == null) 
+
+            if (!_db.ExecuteScalar<bool>(SQLConstants.CheakTable, new { TableName = "Users" }))
             {
                 await _db.QueryAsync(SQLConstants.CreateUserTable);
             }
-
-            string WeatherHistoryTable = (await _db.QueryAsync<string>(SQLConstants.CheakWeatherHistoryCheak)).FirstOrDefault();
-            if (WeatherHistoryTable == null)
+            if (!_db.ExecuteScalar<bool>(SQLConstants.CheakTable, new { TableName = "WeatherHistory" }))
             {
                 await _db.QueryAsync(SQLConstants.CreateWeatherHistoryTable);
-            }
-
-            string CloudsTable = (await _db.QueryAsync<string>(SQLConstants.CheakCloudsCheak)).FirstOrDefault();
-            if (CloudsTable == null)
-            {
-                await _db.QueryAsync(SQLConstants.CreateCloudsTable);
-            }
-
-            string MainTable = (await _db.QueryAsync<string>(SQLConstants.CheakMainCheak)).FirstOrDefault();
-            if (MainTable == null)
-            {
-                await _db.QueryAsync(SQLConstants.CreateMainTable);
-            }
-
-            string WindTable = (await _db.QueryAsync<string>(SQLConstants.CheakWindCheak)).FirstOrDefault();
-            if (WindTable == null)
-            {
-                await _db.QueryAsync(SQLConstants.CreateWindTable);
-            }
-
-            string WeatherObjectTable = (await _db.QueryAsync<string>(SQLConstants.CheakWeatherObjectCheak)).FirstOrDefault();
-            if (WeatherObjectTable == null)
-            {
-                await _db.QueryAsync(SQLConstants.CreateWeatherObjectTable);
-            }            
+            }           
 
         }
 
@@ -63,12 +39,12 @@ namespace TestForInboost.Service
 
         public async Task<UserWithWeatherHistoryDTO> GetUserAndHimHistory(long UserID) 
         {
-            UserWithWeatherHistoryDTO userwithHistiry = new UserWithWeatherHistoryDTO {
+            UserWithWeatherHistoryDTO userWithHistory = new UserWithWeatherHistoryDTO
+            {
                 User = await GetUser(UserID),
                 WeatherHistory = await GetWeatherHistoryByUserId(UserID)
-
             };
-            return userwithHistiry;
+            return userWithHistory; 
         }
         public async Task<UserDTO?> GetUser(long UserID) 
         {
@@ -82,92 +58,51 @@ namespace TestForInboost.Service
             return users;
         }
 
-        public async Task<List<WeatherHistoryDTO>> GetWeatherHistoryByUserId(long UserID)
-        {
-            List<WeatherHistoryDTO> weatherHistoryDTOs = (await _db.QueryAsync<WeatherHistoryDTO>(SQLConstants.GetHistoryOfUser, new { UserId = UserID })).ToList();
-            foreach (var item in weatherHistoryDTOs)
-            {
-                item.clouds = (await _db.QueryAsync<cloudsObjectDTO>(SQLConstants.GetcloudsObjectOfHistoryId, new { WeatherHistoryId = item.Id })).FirstOrDefault();
-                item.main = (await _db.QueryAsync<mainWeatherObjectDTO>(SQLConstants.GetcloudsObjectOfHistoryId, new { WeatherHistoryId = item.Id })).FirstOrDefault();
-                item.weather = (await _db.QueryAsync<weatherObjectDTO>(SQLConstants.GetWeatherObjectOfHistoryId, new { WeatherHistoryId = item.Id })).ToList();
-                item.wind = (await _db.QueryAsync<windObjectDTO>(SQLConstants.GetWindObjectOfHistoryId, new { WeatherHistoryId = item.Id })).FirstOrDefault();
-
-            }
-
-            return weatherHistoryDTOs;
-        }
-
+        
         public async Task<WeatherHistoryDTO> GetWeatherHistoryById(int id) 
         {
-            WeatherHistoryDTO weatherHistoryDTO = (await _db.QueryAsync<WeatherHistoryDTO>(SQLConstants.GetHistoryOfHistoryId, new { Id = id })).FirstOrDefault();
+            return (await _db.QueryAsync<WeatherHistoryDTO>(SQLConstants.GetWeatherHstoryById, new { Id = id })).First();
+        }
 
-            weatherHistoryDTO.clouds = (await _db.QueryAsync<cloudsObjectDTO>(SQLConstants.GetcloudsObjectOfHistoryId, new { WeatherHistoryId = weatherHistoryDTO.Id })).FirstOrDefault();
-            weatherHistoryDTO.main = (await _db.QueryAsync<mainWeatherObjectDTO>(SQLConstants.GetMainWeatherObjectOfHistoryId, new { WeatherHistoryId = weatherHistoryDTO.Id })).FirstOrDefault();
-            weatherHistoryDTO.weather = (await _db.QueryAsync<weatherObjectDTO>(SQLConstants.GetWeatherObjectOfHistoryId, new { WeatherHistoryId = weatherHistoryDTO.Id })).ToList();
-            weatherHistoryDTO.wind = (await _db.QueryAsync<windObjectDTO>(SQLConstants.GetWindObjectOfHistoryId, new { WeatherHistoryId = weatherHistoryDTO.Id })).FirstOrDefault();
-
-            return weatherHistoryDTO;
+        public async Task<List<WeatherHistoryDTO>> GetWeatherHistoryByUserId(long id)
+        {
+            return (await _db.QueryAsync< WeatherHistoryDTO>(SQLConstants.GetHistoryByUserList, new { UserId = id })).OrderByDescending(h=>h.createAt).ToList();
         }
 
         // Create Methods
+
+        public async Task<int> CreateWeatherHistory(JsonElement json,long UserId)
+        {
+
+            int WeatherHistoryId = await _db.ExecuteScalarAsync<int>(SQLConstants.CreateWeatherHistory,
+                new
+                {
+                    UserId,
+                    Main = json.GetProperty("weather").EnumerateArray().First().GetProperty("main").GetString(),
+                    Description = json.GetProperty("weather").EnumerateArray().First().GetProperty("description").GetString(),
+                    temp = json.GetProperty("main").GetProperty("temp").GetDecimal(),
+                    temp_feels_like = json.GetProperty("main").GetProperty("feels_like").GetDecimal(),
+                    temp_min = json.GetProperty("main").GetProperty("temp_min").GetDecimal(),
+                    temp_max = json.GetProperty("main").GetProperty("temp_max").GetDecimal(),
+                    pressure = json.GetProperty("main").GetProperty("pressure").GetInt32(),
+                    humidity = json.GetProperty("main").GetProperty("humidity").GetInt32(),
+                    wind_speed = json.GetProperty("wind").GetProperty("speed").GetDecimal(),
+                    wind_deg = json.GetProperty("wind").GetProperty("deg").GetDecimal(),
+                    cloud = json.GetProperty("clouds").GetProperty("all").GetInt32(),
+                    visibility = json.GetProperty("visibility").GetInt32(),
+                    createAt = DateTime.Now
+                });
+
+            return WeatherHistoryId;
+        }
+
 
         public async Task CreateUser(UserDTO user)
         {
 
             await _db.QueryAsync(SQLConstants.CreateUser, new { Id = user.Id, isBot = user.isBot, FirstName = user.FirstName, LastName = user.LastName, UserName = user.UserName });
             
-        }
-
-        public async Task<int> CreateWeatherHistory(WeatherHistoryDTO weatherHistory)
-        {
-
-            int idOFhistory = await _db.ExecuteScalarAsync<int>(SQLConstants.CreateWeatherHistory,new { visibility = weatherHistory.visibility , UserId = weatherHistory.UserId});
-            await CreateCloudsObject(weatherHistory.clouds, idOFhistory);
-            await CreateMainObject(weatherHistory.main, idOFhistory);
-            await CreateWindObjectDTO(weatherHistory.wind, idOFhistory);
-            await CreateWeatherObject(weatherHistory.weather, idOFhistory);
-
-            return idOFhistory;
-        }
-
-        public async Task CreateCloudsObject(cloudsObjectDTO clouds,int weatherHistoryId)
-        {
-
-            await _db.QueryAsync(SQLConstants.CreateCloudsObject, new { WeatherHistoryId = weatherHistoryId, all = clouds.all });
-        
-        }
-        public async Task CreateMainObject(mainWeatherObjectDTO mainObject, int weatherHistoryId)
-        {
-
-            await _db.QueryAsync(SQLConstants.CreateMainObject, new {
-                WeatherHistoryId = weatherHistoryId,
-                temp = mainObject.temp,
-                feels_like = mainObject.feels_like,
-                temp_min = mainObject.temp_min,
-                temp_max = mainObject.temp_max,
-                pressure = mainObject.pressure,
-                humidity = mainObject.humidity,
-                sea_level = mainObject.sea_level,
-                grnd_level = mainObject.grnd_level,
-
-            });
-        }
-
-        public async Task CreateWindObjectDTO(windObjectDTO windObject, int weatherHistoryId)
-        {
-
-            await _db.QueryAsync(SQLConstants.CreateWindObject, new { WeatherHistoryId = weatherHistoryId, speed = windObject.speed, deg = windObject.deg });
-        }
-
-        public async Task CreateWeatherObject(List<weatherObjectDTO> weatherObjects, int weatherHistoryId)
-        {
-            foreach (var weatherObject in weatherObjects) {
-                await _db.QueryAsync(SQLConstants.CreateWeatherObject, new { WeatherHistoryId = weatherHistoryId, main = weatherObject.main, description = weatherObject.description });
-
-            }
-        }
-
-        
+        }     
 
     }
 }
